@@ -94,13 +94,15 @@ args = parser.parse_args()
 print('Configuration:', vars(args))
 
 CLIENT_ID = 'nightlyfixity'
+FIXITY_DEST = os.getenv('FIXITY_QUEUE', '/queue/fixity')
+CANDIDATE_DEST = os.getenv('CANDIDATE_QUEUE', '/queue/fixitycandidates')
 
 conn = Connection([tuple(args.server.split(':'))])
 listener = FixityListener(
     conn,
     client_id=CLIENT_ID,
-    fixity_dest='/queue/fedorafixity',
-    candidate_dest='/queue/fixitycandidates',
+    fixity_dest=FIXITY_DEST,
+    candidate_dest=CANDIDATE_DEST,
     max_messages=args.number,
     age=parse_duration(args.age),
     timeout=args.timeout
