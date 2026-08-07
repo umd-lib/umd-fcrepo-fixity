@@ -1,13 +1,20 @@
 #!/usr/bin/env python3
 
 import argparse
+import logging
 import os
 import signal
 from datetime import datetime, timedelta
+from http import HTTPStatus
 
 from isodate import parse_duration, Duration
+from plastron.client import Endpoint
+from plastron.client.proxied import ProxiedClient
 from stomp import *
 from stomp.utils import Frame
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger('process_fixitycandidates')
 
 
 class FixityListener(ConnectionListener):
@@ -28,6 +35,10 @@ class FixityListener(ConnectionListener):
         self.newest_allowed = datetime.now() - age
         self.max = max_messages
         self.timeout = timeout
+        self.client = ProxiedClient(
+            endpoint=Endpoint(os.environ['REPO_ENDPOINT']),
+            origin_endpoint=Endpoint(os.environ['REPO_ORIGIN']),
+        )
 
         # set up handler for timeout
         def timeout_handler(_signum, _frame):
@@ -36,15 +47,16 @@ class FixityListener(ConnectionListener):
         signal.signal(signal.SIGALRM, timeout_handler)
 
         self.processed = 0
+        self.removed = 0
         self.done = False
 
     def stop_processing(self, reason: str):
-        print('Stopping:', reason)
+        logger.info(f'Stopping: {reason}')
         self.conn.unsubscribe(self.client_id)
         self.done = True
 
     def on_connected(self, frame: Frame):
-        print(f'Connected; timeout is {self.timeout} seconds')
+        logger.info(f'Connected; timeout is {self.timeout} seconds')
         # start timeout timer
         signal.alarm(self.timeout)
 
@@ -64,17 +76,24 @@ class FixityListener(ConnectionListener):
             headers = frame.headers
             body = frame.body
             self.conn.ack(headers['message-id'], self.client_id)
-            print(f'Fixity check candidate {self.processed + 1}:', headers['CamelFcrepoUri'])
+            uri = headers['CamelFcrepoUri']
+            res = self.client.head(uri)
+            if res.status_code == HTTPStatus.GONE:
+                logger.warning(f'Fixity check candidate {uri} has been removed from repository')
+                logger.info(f'Removing {uri} from the fixity candidates queue')
+                self.removed += 1
+            else:
+                logger.info(f'Fixity check candidate {self.processed + 1}: {uri}')
 
-            print('-> Sending to fixity checking:', self.fixity_dest)
-            self.conn.send(self.fixity_dest, body=body, headers=headers)
+                logger.info(f'-> Sending to fixity checking: {self.fixity_dest}')
+                self.conn.send(self.fixity_dest, body=body, headers=headers)
 
-            print('-> Sending to end of candidates list:', self.candidate_dest)
-            # clear the old timestamp
-            headers['timestamp'] = None
-            self.conn.send(self.candidate_dest, body=body, headers=headers)
+                logger.info(f'-> Sending to end of candidates list: {self.candidate_dest}')
+                # clear the old timestamp
+                headers['timestamp'] = None
+                self.conn.send(self.candidate_dest, body=body, headers=headers)
 
-            self.processed += 1
+                self.processed += 1
 
             # reset and restart timeout timer
             signal.alarm(self.timeout)
@@ -105,7 +124,7 @@ parser.add_argument(
 )
 
 args = parser.parse_args()
-print('Configuration:', vars(args))
+logger.info(f'Configuration: {vars(args)}')
 
 CLIENT_ID = 'nightlyfixity'
 FIXITY_DEST = os.getenv('FIXITY_QUEUE', '/queue/fixity')
@@ -134,4 +153,5 @@ while not listener.done:
     pass
 
 conn.disconnect()
-print('Processed', listener.processed, 'message(s)')
+logger.info(f'Processed {listener.processed} message(s)')
+logger.info(f'Removed {listener.removed} message(s)')

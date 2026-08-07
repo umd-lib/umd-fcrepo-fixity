@@ -2,3 +2,4 @@ stomp.py==9.0.0
 isodate==0.7.2
 requests==2.34.2
 PyYAML==6.0.3
+plastron-client==4.8.1
