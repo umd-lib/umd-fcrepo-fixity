@@ -6,13 +6,13 @@
 #
 # where <VERSION> is the Docker image version to create.
 
-FROM python:3.6.8-slim-stretch
+FROM python:3.14.3-slim
 
 WORKDIR /usr/src/app
 
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY process_fixitycandidates.py ./
 
 ENTRYPOINT [ "python", "./process_fixitycandidates.py" ]
