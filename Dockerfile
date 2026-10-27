@@ -6,7 +6,7 @@
 #
 # where <VERSION> is the Docker image version to create.
 
-FROM python:3.14.3-slim
+FROM python:3.14.9-slim
 
 WORKDIR /usr/src/app
 
