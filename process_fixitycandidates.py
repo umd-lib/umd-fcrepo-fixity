@@ -1,5 +1,16 @@
 #!/usr/bin/env python3
 
+# PEP 723 inline dependencies
+# /// script
+# requires-python = ">=3.14.9"
+# dependencies = [
+#     "certifi>=2026.10.19",
+#     "stomp.py~=9.0.0",
+#     "isodate~=0.7.2",
+#     "plastron-client~=4.8.3",
+# ]
+# ///
+
 import argparse
 import logging
 import os
