@@ -10,9 +10,8 @@ FROM python:3.14.9-slim
 
 WORKDIR /usr/src/app
 
-COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
-
 COPY process_fixitycandidates.py ./
+
+RUN pip install --no-cache-dir --requirements-from-script process_fixitycandidates.py
 
 ENTRYPOINT [ "python", "./process_fixitycandidates.py" ]
